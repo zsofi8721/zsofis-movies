@@ -2,18 +2,24 @@ import { useEffect, useState } from "react";
 import { m } from "framer-motion";
 import { useParams } from "react-router-dom";
 
-import { Poster, Loader, Error, Section } from "@/common";
+import { Poster, Loader, Error, Section, StarRating } from "@/common";
 import { Casts, Videos, Genre } from "./components";
 
 import { useGetShowQuery } from "@/services/TMDB";
+import { useWatchlist } from "@/context/watchlistContext";
+import { useRating } from "@/context/ratingContext";
 import { useMotion } from "@/hooks/useMotion";
-import { mainHeading, maxWidth, paragraph } from "@/styles";
+import { mainHeading, maxWidth, paragraph, watchBtn } from "@/styles";
 import { cn } from "@/utils/helper";
 
 const Detail = () => {
   const { category, id } = useParams();
   const [show, setShow] = useState<Boolean>(false);
   const { fadeDown, staggerContainer } = useMotion();
+  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+  const { getRating, setRating, clearRating } = useRating();
+  const inWatchlist = isInWatchlist(String(id));
+  const rating = getRating(String(id), String(category));
 
   const {
     data: movie,
@@ -90,6 +96,47 @@ const Detail = () => {
                 return <Genre key={genre.id} name={genre.name} />;
               })}
             </m.ul>
+
+            <m.div variants={fadeDown} className="will-change-transform motion-reduce:transform-none">
+              <button
+                type="button"
+                className={cn(
+                  watchBtn,
+                  inWatchlist
+                    ? "bg-[#ff0000] text-gray-50"
+                    : "border border-gray-300 text-gray-300 hover:bg-gray-300/10"
+                )}
+                onClick={() => {
+                  if (inWatchlist) {
+                    removeFromWatchlist(String(id));
+                  } else {
+                    addToWatchlist({
+                      id: String(id),
+                      category: category as "movie" | "tv",
+                      poster_path: posterPath,
+                      original_title: title,
+                      name,
+                    });
+                  }
+                }}
+              >
+                {inWatchlist ? "Remove from Watchlist" : "+ Add to Watchlist"}
+              </button>
+            </m.div>
+
+            <m.div variants={fadeDown} className="flex flex-col gap-1 will-change-transform motion-reduce:transform-none">
+              <span className="text-sm font-nunito font-semibold text-gray-400 dark:text-gray-500">Your rating</span>
+              <StarRating
+                value={rating}
+                onChange={(value) => {
+                  if (value === rating) {
+                    clearRating(String(id), String(category));
+                  } else {
+                    setRating(String(id), String(category), value);
+                  }
+                }}
+              />
+            </m.div>
 
             <m.p variants={fadeDown} className={`${paragraph} will-change-transform motion-reduce:transform-none`}>
               <span>

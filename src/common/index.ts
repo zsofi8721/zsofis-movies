@@ -10,6 +10,7 @@ import { SkelatonLoader, Loader } from "./Loader";
 import Error from "./Error";
 import ThemeMenu from "./ThemeMenu";
 import Section from "./Section";
+import StarRating from "./StarRating";
 
 export {
   Footer,
@@ -25,4 +26,5 @@ export {
   Error,
   ThemeMenu,
   Section,
+  StarRating,
 };
