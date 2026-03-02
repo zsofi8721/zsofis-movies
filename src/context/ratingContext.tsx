@@ -1,7 +1,10 @@
 import React, { useCallback, useContext, useState, useEffect } from "react";
-import { RatingValue } from "@/types";
+import { RatingValue, ReviewValue } from "@/types";
 
-const STORAGE_KEY = "movie-ratings";
+const RATINGS_STORAGE_KEY = "movie-ratings";
+const REVIEWS_STORAGE_KEY = "movie-reviews";
+
+export const MAX_REVIEW_LENGTH = 500;
 
 type RatingKey = string;
 
@@ -10,7 +13,16 @@ const getRatingKey = (id: string, category: string): RatingKey =>
 
 const getStoredRatings = (): Record<RatingKey, RatingValue> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(RATINGS_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const getStoredReviews = (): Record<RatingKey, ReviewValue> => {
+  try {
+    const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
     return stored ? JSON.parse(stored) : {};
   } catch {
     return {};
@@ -22,6 +34,10 @@ const context = React.createContext({
     undefined,
   setRating: (_id: string, _category: string, _value: RatingValue) => {},
   clearRating: (_id: string, _category: string) => {},
+  getReview: (_id: string, _category: string): ReviewValue | undefined =>
+    undefined,
+  setReview: (_id: string, _category: string, _value: ReviewValue) => {},
+  clearReview: (_id: string, _category: string) => {},
 });
 
 interface Props {
@@ -32,10 +48,17 @@ const RatingProvider = ({ children }: Props) => {
   const [ratings, setRatings] = useState<Record<RatingKey, RatingValue>>(
     getStoredRatings
   );
+  const [reviews, setReviews] = useState<Record<RatingKey, ReviewValue>>(
+    getStoredReviews
+  );
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ratings));
+    localStorage.setItem(RATINGS_STORAGE_KEY, JSON.stringify(ratings));
   }, [ratings]);
+
+  useEffect(() => {
+    localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+  }, [reviews]);
 
   const getRating = useCallback(
     (id: string, category: string): RatingValue | undefined => {
@@ -59,10 +82,44 @@ const RatingProvider = ({ children }: Props) => {
       delete next[key];
       return next;
     });
+    setReviews((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const getReview = useCallback(
+    (id: string, category: string): ReviewValue | undefined => {
+      return reviews[getRatingKey(id, category)];
+    },
+    [reviews]
+  );
+
+  const setReview = useCallback(
+    (id: string, category: string, value: ReviewValue) => {
+      const key = getRatingKey(id, category);
+      const trimmed = value.slice(0, MAX_REVIEW_LENGTH);
+      setReviews((prev) =>
+        prev[key] === trimmed ? prev : { ...prev, [key]: trimmed }
+      );
+    },
+    []
+  );
+
+  const clearReview = useCallback((id: string, category: string) => {
+    const key = getRatingKey(id, category);
+    setReviews((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }, []);
 
   return (
-    <context.Provider value={{ getRating, setRating, clearRating }}>
+    <context.Provider
+      value={{ getRating, setRating, clearRating, getReview, setReview, clearReview }}
+    >
       {children}
     </context.Provider>
   );

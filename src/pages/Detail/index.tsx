@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { m } from "framer-motion";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import { useParams } from "react-router-dom";
 
 import { Poster, Loader, Error, Section, StarRating } from "@/common";
@@ -7,7 +7,7 @@ import { Casts, Videos, Genre } from "./components";
 
 import { useGetShowQuery } from "@/services/TMDB";
 import { useWatchlist } from "@/context/watchlistContext";
-import { useRating } from "@/context/ratingContext";
+import { useRating, MAX_REVIEW_LENGTH } from "@/context/ratingContext";
 import { useMotion } from "@/hooks/useMotion";
 import { mainHeading, maxWidth, paragraph, watchBtn } from "@/styles";
 import { cn } from "@/utils/helper";
@@ -17,9 +17,34 @@ const Detail = () => {
   const [show, setShow] = useState<Boolean>(false);
   const { fadeDown, staggerContainer } = useMotion();
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
-  const { getRating, setRating, clearRating } = useRating();
+  const { getRating, setRating, clearRating, getReview, setReview } = useRating();
   const inWatchlist = isInWatchlist(String(id));
   const rating = getRating(String(id), String(category));
+  const savedReview = getReview(String(id), String(category)) ?? "";
+  const [reviewText, setReviewText] = useState(savedReview);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync local state when navigating to a different show
+  useEffect(() => {
+    setReviewText(savedReview);
+  }, [id, category]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReviewChange = useCallback(
+    (value: string) => {
+      const clamped = value.slice(0, MAX_REVIEW_LENGTH);
+      setReviewText(clamped);
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setReview(String(id), String(category), clamped);
+      }, 500);
+    },
+    [id, category, setReview]
+  );
+
+  const handleReviewBlur = useCallback(() => {
+    clearTimeout(debounceRef.current);
+    setReview(String(id), String(category), reviewText);
+  }, [id, category, reviewText, setReview]);
 
   const {
     data: movie,
@@ -136,6 +161,42 @@ const Detail = () => {
                   }
                 }}
               />
+              <AnimatePresence>
+                {rating && (
+                  <m.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col gap-1 mt-2"
+                  >
+                    <label
+                      htmlFor="review-text"
+                      className="text-sm font-nunito font-semibold text-gray-400 dark:text-gray-500"
+                    >
+                      Your review
+                    </label>
+                    <textarea
+                      id="review-text"
+                      rows={3}
+                      placeholder="Write a short review..."
+                      value={reviewText}
+                      onChange={(e) => handleReviewChange(e.target.value)}
+                      onBlur={handleReviewBlur}
+                      maxLength={MAX_REVIEW_LENGTH}
+                      className={cn(
+                        "w-full rounded-md border px-3 py-2 text-sm font-nunito resize-y",
+                        "bg-black/30 border-gray-600 text-gray-200 placeholder-gray-500",
+                        "focus:outline-none focus:ring-2 focus:ring-[#ff0000]/50 focus:border-transparent",
+                        "dark:bg-black/40 dark:border-gray-700 dark:text-gray-200 dark:placeholder-gray-600"
+                      )}
+                    />
+                    <span className="text-xs font-nunito text-gray-500 text-right">
+                      {reviewText.length}/{MAX_REVIEW_LENGTH}
+                    </span>
+                  </m.div>
+                )}
+              </AnimatePresence>
             </m.div>
 
             <m.p variants={fadeDown} className={`${paragraph} will-change-transform motion-reduce:transform-none`}>

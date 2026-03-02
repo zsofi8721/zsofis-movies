@@ -27,3 +27,6 @@ export interface IWatchlistItem {
 /** User rating 1-5 for a show, keyed by category and id */
 export type RatingValue = 1 | 2 | 3 | 4 | 5;
 
+/** User review text for a show */
+export type ReviewValue = string;
+
